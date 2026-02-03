@@ -13,12 +13,17 @@ export interface Patient {
 }
 
 export interface Activity {
-  id: string;
-  name: string;
+  id: string | number;
+  title?: string;
+  name?: string;
   description: string;
-  type: 'rest' | 'light' | 'moderate' | 'intense' | 'meditation';
-  duration: number;
-  status: 'active' | 'completed' | 'scheduled';
+  type?: 'rest' | 'light' | 'moderate' | 'intense' | 'meditation';
+  duration?: number;
+  durationInMinutes?: number;
+  status?: 'active' | 'completed' | 'scheduled';
+  completed?: boolean;
+  patientId?: string | number;
+  doctorId?: string | number;
   startTime?: Date;
   endTime?: Date;
   averageBpm?: number;
@@ -37,15 +42,10 @@ export interface PPGData {
   value: number;
 }
 
-export interface Alert {
-  id: string;
-  patientId: string;
-  patientName: string;
-  type: 'high' | 'low';
-  bpm: number;
-  threshold: number;
-  timestamp: Date;
-  acknowledged: boolean;
+export interface DoctorPatient {
+  id: number;
+  nom: string;
+  prenom: string;
 }
 
 export type UserRole = 'doctor' | 'patient';

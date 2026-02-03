@@ -54,7 +54,7 @@ export default function LoginPage() {
               <Heart className="h-7 w-7 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">CardioWatch</h1>
+              <h1 className="text-2xl font-bold text-foreground">Smart Pulse</h1>
               <p className="text-sm text-muted-foreground">Monitoring Cardiaque LoRaWAN</p>
             </div>
           </div>
