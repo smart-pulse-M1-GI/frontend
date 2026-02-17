@@ -25,6 +25,67 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [patients, setPatients] = useState<any[]>([]);
+
+  // Récupérer la liste des patients pour enrichir les notifications
+  const fetchPatients = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/my-patients`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPatients(data);
+        console.log('✅ Patients chargés pour notifications:', data);
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement patients:', error);
+    }
+  };
+
+  // Enrichir le message de notification avec le nom du patient
+  const enrichNotificationMessage = (message: string): string => {
+    if (patients.length === 0) return message;
+
+    let enrichedMessage = message;
+
+    // Pattern pour capturer "Le patient X", "le patient X", "La patient X", etc.
+    const patternWithArticle = /(Le|le|La|la|L'|l')\s+patient\s+(\d+)/gi;
+    
+    // Remplacer "Le/le/La/la patient X" avec juste le nom (sans article)
+    enrichedMessage = enrichedMessage.replace(patternWithArticle, (match, article, patientId) => {
+      const patient = patients.find(p => String(p.id) === patientId);
+      if (patient) {
+        return `${patient.prenom} ${patient.nom}`;
+      }
+      return match;
+    });
+
+    // Pattern pour "patient X" sans article (au cas où)
+    const patternWithSpace = /patient\s+(\d+)/gi;
+    enrichedMessage = enrichedMessage.replace(patternWithSpace, (match, patientId) => {
+      const patient = patients.find(p => String(p.id) === patientId);
+      if (patient) {
+        return `${patient.prenom} ${patient.nom}`;
+      }
+      return match;
+    });
+
+    // Pattern pour "patientX" collé
+    const patternWithoutSpace = /patient(\d+)/gi;
+    enrichedMessage = enrichedMessage.replace(patternWithoutSpace, (match, patientId) => {
+      const patient = patients.find(p => String(p.id) === patientId);
+      if (patient) {
+        return `${patient.prenom} ${patient.nom}`;
+      }
+      return match;
+    });
+
+    return enrichedMessage;
+  };
 
   // Récupérer les notifications
   const fetchNotifications = async () => {
@@ -108,6 +169,13 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
       console.error('❌ Erreur:', error);
     }
   };
+
+  // Charger les patients au montage
+  useEffect(() => {
+    if (userId && token) {
+      fetchPatients();
+    }
+  }, [userId, token]);
 
   // Charger au clic
   useEffect(() => {
@@ -239,7 +307,7 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
                           <p className="text-sm font-medium leading-relaxed">
-                            {notification.message}
+                            {enrichNotificationMessage(notification.message)}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
                             {formatDate(notification.createdAt)}

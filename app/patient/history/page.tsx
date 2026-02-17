@@ -3,11 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { HeartRateChart } from '@/components/heart-rate-chart';
-import { Heart, ArrowLeft, Activity, TrendingUp, Clock, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Heart, ArrowLeft, Activity, TrendingUp, Clock, Loader2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import Link from 'next/link';
-import { HeartRateData } from '@/lib/types';
 
 interface SessionSummary {
   sessionId: number;
@@ -22,21 +20,16 @@ interface SessionSummary {
   duration?: number;
 }
 
-interface SessionData {
-  id: number;
-  bpm: number;
-  timestamp: string;
-}
-
 export default function PatientHistory() {
   const [selectedPeriod, setSelectedPeriod] = useState('all');
-  const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [sessionData, setSessionData] = useState<HeartRateData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState('');
   const [patientId, setPatientId] = useState('');
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   const getToken = () => {
     if (typeof window !== 'undefined') {
@@ -146,11 +139,6 @@ export default function PatientHistory() {
         const validSessions = sessionsWithSummary.filter(s => s !== null) as SessionSummary[];
         setSessions(validSessions);
 
-        // Sélectionner la première session par défaut
-        if (validSessions.length > 0) {
-          setSelectedSession(validSessions[0].sessionId);
-        }
-
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Erreur de chargement';
         console.error('[History] Error:', errorMsg);
@@ -162,47 +150,6 @@ export default function PatientHistory() {
 
     fetchSessions();
   }, [patientId]);
-
-  // Charger les données d'une session sélectionnée
-  useEffect(() => {
-    const fetchSessionData = async () => {
-      if (!selectedSession) return;
-
-      try {
-        setLoadingData(true);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-        if (!apiUrl) return;
-
-        console.log('📈 Chargement données session:', selectedSession);
-
-        const dataRes = await fetch(
-          `${apiUrl}/api/v1/cardiac/session/${selectedSession}/data`,
-          {
-            headers: getHeaders(),
-          }
-        );
-
-        if (dataRes.ok) {
-          const data: SessionData[] = await dataRes.json();
-          console.log('✅ Données chargées:', data.length, 'points');
-
-          // Transformer les données pour le graphique
-          const heartRateData: HeartRateData[] = data.map(point => ({
-            timestamp: new Date(point.timestamp),
-            bpm: point.bpm,
-          }));
-
-          setSessionData(heartRateData);
-        }
-      } catch (err) {
-        console.error('Erreur chargement données session:', err);
-      } finally {
-        setLoadingData(false);
-      }
-    };
-
-    fetchSessionData();
-  }, [selectedSession]);
 
   // Filtrer les sessions par période
   const filteredSessions = sessions.filter(session => {
@@ -224,6 +171,29 @@ export default function PatientHistory() {
         return true;
     }
   });
+
+  // Réinitialiser la page quand on change de filtre
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedPeriod]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredSessions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedSessions = filteredSessions.slice(startIndex, endIndex);
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   // Formater la date
   const formatDate = (dateString?: string) => {
@@ -259,14 +229,27 @@ export default function PatientHistory() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Link href="/patient/dashboard">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Retour
-            </Button>
-          </Link>
-          <h1 className="text-2xl font-bold">Historique des Activités</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Link href="/patient/dashboard">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Retour
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold">Historique des Activités</h1>
+              <p className="text-sm text-muted-foreground">
+                {filteredSessions.length} session{filteredSessions.length > 1 ? 's' : ''} trouvée{filteredSessions.length > 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          
+          {/* Badge du nombre total */}
+          <Badge variant="secondary" className="text-lg px-4 py-2">
+            <Activity className="h-4 w-4 mr-2" />
+            {sessions.length} session{sessions.length > 1 ? 's' : ''} au total
+          </Badge>
         </div>
 
         {/* Erreur */}
@@ -276,20 +259,47 @@ export default function PatientHistory() {
           </div>
         )}
 
-        {/* Filtres */}
-        <div className="flex gap-4 mb-6">
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Sélectionner période" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toutes les périodes</SelectItem>
-              <SelectItem value="today">Aujourd&apos;hui</SelectItem>
-              <SelectItem value="week">Cette semaine</SelectItem>
-              <SelectItem value="month">Ce mois</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Filtres - Plus visibles */}
+        <Card className="mb-6 border-2 border-primary/20">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-primary" />
+              <CardTitle>Filtrer par période</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Button
+                variant={selectedPeriod === 'all' ? 'default' : 'outline'}
+                onClick={() => setSelectedPeriod('all')}
+                className="w-full"
+              >
+                Toutes
+              </Button>
+              <Button
+                variant={selectedPeriod === 'today' ? 'default' : 'outline'}
+                onClick={() => setSelectedPeriod('today')}
+                className="w-full"
+              >
+                Aujourd&apos;hui
+              </Button>
+              <Button
+                variant={selectedPeriod === 'week' ? 'default' : 'outline'}
+                onClick={() => setSelectedPeriod('week')}
+                className="w-full"
+              >
+                Cette semaine
+              </Button>
+              <Button
+                variant={selectedPeriod === 'month' ? 'default' : 'outline'}
+                onClick={() => setSelectedPeriod('month')}
+                className="w-full"
+              >
+                Ce mois
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {filteredSessions.length === 0 ? (
           <Card>
@@ -297,69 +307,85 @@ export default function PatientHistory() {
               <Activity className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h3 className="text-lg font-semibold mb-2">Aucune session trouvée</h3>
               <p className="text-sm text-muted-foreground">
-                Commencez une activité pour voir votre historique ici
+                {selectedPeriod === 'all' 
+                  ? 'Commencez une activité pour voir votre historique ici'
+                  : 'Aucune session pour cette période. Essayez un autre filtre.'}
               </p>
             </CardContent>
           </Card>
         ) : (
-          // Cartes des sessions uniquement
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredSessions.map((session) => (
+          <>
+            {/* Cartes des sessions paginées */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
+              {paginatedSessions.map((session) => (
                 <Card
                   key={session.sessionId}
-                  className="transition-all hover:shadow-lg"
+                  className="transition-all hover:shadow-lg hover:border-primary/50"
                 >
                   <CardHeader>
-                    <CardTitle className="text-lg">
-                      {session.activityTitle}
+                    <CardTitle className="text-lg flex items-center justify-between">
+                      <span>{session.activityTitle}</span>
+                      <Badge variant="outline" className="ml-2">
+                        #{session.sessionId}
+                      </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground mb-3">
+                    <p className="text-sm text-muted-foreground mb-4">
                       {session.activityDescription}
                     </p>
                     
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-3 text-sm">
                       {/* Durée */}
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">Durée:</span>
-                        <span>{formatDuration(session.duration)}</span>
+                      <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">Durée</span>
+                        </div>
+                        <span className="font-semibold">{formatDuration(session.duration)}</span>
                       </div>
 
                       {/* BPM Moyen */}
-                      <div className="flex items-center gap-2">
-                        <Heart className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">BPM moyen:</span>
-                        <span className="font-semibold text-primary">
+                      <div className="flex items-center justify-between p-2 bg-primary/5 rounded">
+                        <div className="flex items-center gap-2">
+                          <Heart className="h-4 w-4 text-primary" />
+                          <span className="font-medium">BPM moyen</span>
+                        </div>
+                        <span className="font-bold text-primary text-lg">
                           {Math.round(session.averageBpm)}
                         </span>
                       </div>
 
                       {/* Min - Max */}
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">Min - Max:</span>
-                        <span>
+                      <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">Min - Max</span>
+                        </div>
+                        <span className="font-semibold">
                           {Math.round(session.minBpm)} - {Math.round(session.maxBpm)}
                         </span>
                       </div>
 
                       {/* Points de données */}
-                      <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">Points:</span>
-                        <span>{session.totalPoints}</span>
+                      <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                        <div className="flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">Points</span>
+                        </div>
+                        <span className="font-semibold">{session.totalPoints}</span>
                       </div>
 
                       {/* Date de début */}
-                      <div className="pt-2 border-t">
-                        <p className="text-xs text-muted-foreground">
-                          Début: {formatDate(session.startTime)}
+                      <div className="pt-3 border-t space-y-1">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <span className="font-medium">Début:</span>
+                          <span>{formatDate(session.startTime)}</span>
                         </p>
                         {session.endTime && (
-                          <p className="text-xs text-muted-foreground">
-                            Fin: {formatDate(session.endTime)}
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <span className="font-medium">Fin:</span>
+                            <span>{formatDate(session.endTime)}</span>
                           </p>
                         )}
                       </div>
@@ -368,6 +394,59 @@ export default function PatientHistory() {
                 </Card>
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Page {currentPage} sur {totalPages} 
+                      <span className="ml-2">
+                        ({startIndex + 1}-{Math.min(endIndex, filteredSessions.length)} sur {filteredSessions.length})
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={goToPreviousPage}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Précédent
+                      </Button>
+                      
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant={currentPage === page ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="w-10"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={goToNextPage}
+                        disabled={currentPage === totalPages}
+                      >
+                        Suivant
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </div>

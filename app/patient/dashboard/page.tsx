@@ -4,11 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { HeartRateChart } from '@/components/heart-rate-chart';
-import { PPGWaveform } from '@/components/ppg-waveform';
 import { ActivityCard } from '@/components/activity-card';
 import { StatsCard } from '@/components/stats-card';
 import { Badge } from '@/components/ui/badge';
-import { Activity, HeartRateData, PPGData } from '@/lib/types';
+import { Activity, HeartRateData } from '@/lib/types';
 import { Heart, Clock, TrendingUp, ActivityIcon, Loader2, LogOut, Play, Square, Wifi, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -28,7 +27,6 @@ export default function PatientDashboard() {
   
   // Données temps réel
   const [heartRateData, setHeartRateData] = useState<HeartRateData[]>([]);
-  const [ppgData, setPpgData] = useState<PPGData[]>([]);
   const [currentBpm, setCurrentBpm] = useState(0);
   
   // Activités
@@ -36,6 +34,10 @@ export default function PatientDashboard() {
   const [activeActivity, setActiveActivity] = useState<Activity | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [timer, setTimer] = useState(0);
+
+  // Session libre
+  const [isFreeSessionActive, setIsFreeSessionActive] = useState(false);
+  const [freeSessionId, setFreeSessionId] = useState<number | null>(null);
 
   // WebSocket et états de connexion
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -135,15 +137,6 @@ export default function PatientDashboard() {
     }
     setHeartRateData(initialData);
     setCurrentBpm(Math.round(initialData[initialData.length - 1].bpm));
-    
-    const ppgInitial: PPGData[] = [];
-    for (let i = 0; i < 30; i++) {
-      ppgInitial.push({
-        timestamp: new Date(now.getTime() - (29 - i) * 100),
-        value: Math.sin(i / 5) * 50 + 512,
-      });
-    }
-    setPpgData(ppgInitial);
   };
 
   // ==================== CONFIGURATION WEBSOCKET ====================
@@ -241,6 +234,66 @@ export default function PatientDashboard() {
     }
   };
 
+  // Démarrer une session libre
+  const handleStartFreeSession = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl || !patientId) return;
+
+      console.log('▶️  Démarrage de session libre pour patient:', patientId);
+
+      const res = await fetch(`${apiUrl}/api/v1/cardiac/start`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          patientId: patientId,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Impossible de démarrer la session libre');
+
+      const sessionId = await res.json();
+      setFreeSessionId(sessionId);
+      setIsFreeSessionActive(true);
+      setTimer(0);
+
+      console.log('✅ Session libre démarrée! Session ID:', sessionId);
+
+    } catch (err) {
+      console.error('[Start Free Session] Error:', err);
+      setError('Impossible de démarrer la session libre');
+    }
+  };
+
+  // Arrêter la session libre
+  const handleStopFreeSession = async () => {
+    if (!freeSessionId) return;
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) return;
+
+      console.log('⏹️  Arrêt de la session libre');
+
+      const res = await fetch(`${apiUrl}/api/v1/cardiac/stop`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+
+      if (!res.ok) throw new Error('Impossible d\'arrêter la session libre');
+
+      console.log('✅ Session libre terminée');
+
+      setIsFreeSessionActive(false);
+      setFreeSessionId(null);
+      setTimer(0);
+
+    } catch (err) {
+      console.error('[Stop Free Session] Error:', err);
+      setError('Erreur lors de l\'arrêt de la session libre');
+    }
+  };
+
   // Arrêter une activité
   const handleStopActivity = useCallback(async () => {
     if (!activeActivity || !activeSessionId) return;
@@ -279,17 +332,19 @@ export default function PatientDashboard() {
     }
   }, [activeActivity, activeSessionId]);
 
-  // Timer pour l'activité active
+  // Timer pour l'activité active ou session libre
   useEffect(() => {
-    if (activeActivity) {
+    if (activeActivity || isFreeSessionActive) {
       const interval = setInterval(() => {
         setTimer(prev => {
           const newTime = prev + 1;
-          // Auto-stop après la durée prévue
-          if (newTime >= activeActivity.durationInMinutes * 60) {
-            console.log('⏰ Durée atteinte, arrêt automatique');
-            handleStopActivity();
-            return 0;
+          // Auto-stop après la durée prévue (seulement pour les activités)
+          if (activeActivity && activeActivity.durationInMinutes) {
+            if (newTime >= activeActivity.durationInMinutes * 60) {
+              console.log('⏰ Durée atteinte, arrêt automatique');
+              handleStopActivity();
+              return 0;
+            }
           }
           return newTime;
         });
@@ -297,24 +352,7 @@ export default function PatientDashboard() {
 
       return () => clearInterval(interval);
     }
-  }, [activeActivity, handleStopActivity]);
-
-  // Mise à jour PPG (simulation locale)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPpgData(prev => {
-        const newData = [...prev.slice(1)];
-        const phase = (Date.now() % 1000) / 1000;
-        newData.push({
-          timestamp: new Date(),
-          value: Math.sin(phase * Math.PI * 2) * 50 + 512,
-        });
-        return newData;
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [activeActivity, isFreeSessionActive, handleStopActivity]);
 
   const handleLogout = () => {
     if (stompClient?.active) {
@@ -417,6 +455,80 @@ export default function PatientDashboard() {
           </div>
         )}
 
+        {/* ==================== CONTRÔLE DE SESSION LIBRE ==================== */}
+        <Card className="mb-6 border-2 border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                  isFreeSessionActive || activeActivity
+                    ? 'bg-green-100 dark:bg-green-900' 
+                    : 'bg-gray-100 dark:bg-gray-800'
+                }`}>
+                  {isFreeSessionActive || activeActivity ? (
+                    <Heart className="h-6 w-6 text-green-600 dark:text-green-400 animate-pulse" />
+                  ) : (
+                    <Heart className="h-6 w-6 text-gray-400" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Session de monitoring cardiaque</h3>
+                  {activeActivity ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        ✅ Activité en cours : {activeActivity.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Session ID: {activeSessionId} | Temps écoulé: {formatTime(timer)}
+                      </p>
+                    </>
+                  ) : isFreeSessionActive ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        ✅ Session libre active (ID: {freeSessionId})
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Temps écoulé: {formatTime(timer)}
+                      </p>
+                      {heartRateData.length === 0 && (
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                          📡 En attente des données du capteur...
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      ⭕ Aucune session active - Démarrez une activité ci-dessous ou une session libre
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              {!isFreeSessionActive && !activeActivity ? (
+                <Button 
+                  onClick={handleStartFreeSession} 
+                  size="lg"
+                  className="gap-2 px-6"
+                  disabled={connectionStatus !== 'connected'}
+                >
+                  <Play className="h-5 w-5" />
+                  Session libre
+                </Button>
+              ) : isFreeSessionActive ? (
+                <Button 
+                  onClick={handleStopFreeSession} 
+                  variant="destructive" 
+                  size="lg"
+                  className="gap-2 px-6"
+                >
+                  <Square className="h-5 w-5" />
+                  Arrêter la session
+                </Button>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* ==================== ACTIVITÉ EN COURS - GRANDE CARTE ==================== */}
         {activeActivity && (
           <Card className="mb-6 border-2 border-green-500 bg-green-500/10">
@@ -472,21 +584,20 @@ export default function PatientDashboard() {
           <StatsCard
             title="Temps d'Activité"
             value={formatTime(timer)}
-            subtitle={activeActivity ? activeActivity.title : 'Aucune activité'}
+            subtitle={activeActivity ? activeActivity.title : isFreeSessionActive ? 'Session libre' : 'Aucune activité'}
             icon={Clock}
           />
         </div>
 
         {/* ==================== GRAPHIQUES ET ACTIVITÉS ==================== */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2">
             <HeartRateChart 
               data={heartRateData}
               minThreshold={minThreshold}
               maxThreshold={maxThreshold}
               showThresholds
             />
-            <PPGWaveform data={ppgData} />
           </div>
 
           <div>
@@ -524,9 +635,9 @@ export default function PatientDashboard() {
                               En cours
                             </span>
                           </div>
-                        ) : activeActivity ? (
+                        ) : activeActivity || isFreeSessionActive ? (
                           <div className="text-xs text-muted-foreground italic">
-                            Une activité est déjà en cours
+                            {isFreeSessionActive ? 'Session libre en cours' : 'Une activité est déjà en cours'}
                           </div>
                         ) : (
                           <Button

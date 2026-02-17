@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { PatientCard } from '@/components/patient-card';
 import { StatsCard } from '@/components/stats-card';
+import { NotificationsPanel } from '@/components/notifications-panel';
 import { Patient } from '@/lib/types';
 import { Heart, Users, AlertCircle, Activity, Plus, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -26,6 +27,9 @@ export default function DoctorDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [doctorId, setDoctorId] = useState('');
+  
+  // États pour les données temps réel
+  const [patientsWithStatus, setPatientsWithStatus] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     mail: '',
@@ -77,6 +81,9 @@ export default function DoctorDashboard() {
         if (patientsRes.ok) {
           const patientsData = await patientsRes.json();
           setPatients(patientsData);
+          
+          // Enrichir avec les données temps réel
+          await enrichPatientsWithRealtimeData(patientsData);
         }
       } catch (err) {
         console.error(err);
@@ -88,6 +95,101 @@ export default function DoctorDashboard() {
 
     fetchDoctorData();
   }, []);
+
+  // Enrichir les patients avec les données temps réel (seuils, BPM actuel, etc.)
+  const enrichPatientsWithRealtimeData = async (patientsData: any[]) => {
+    const enrichedPatients = await Promise.all(
+      patientsData.map(async (patient) => {
+        try {
+          // Récupérer les seuils
+          const thresholdsRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/v1/thresholds/patient/${patient.id}`,
+            { headers: getHeaders() }
+          );
+
+          let thresholds = { bpmMin: 60, bpmMax: 100 };
+          if (thresholdsRes.ok) {
+            thresholds = await thresholdsRes.json();
+          }
+
+          // Récupérer la session active
+          const sessionsRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/v1/cardiac/patient/${patient.id}/sessions`,
+            { headers: getHeaders() }
+          );
+
+          let currentBpm = null;
+          let isActive = false;
+          
+          if (sessionsRes.ok) {
+            const sessions = await sessionsRes.json();
+            const activeSession = sessions.find((s: any) => !s.endTime);
+            
+            if (activeSession) {
+              isActive = true;
+              // Récupérer les dernières données
+              const dataRes = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/v1/cardiac/session/${activeSession.id}/data`,
+                { headers: getHeaders() }
+              );
+              
+              if (dataRes.ok) {
+                const data = await dataRes.json();
+                if (data.length > 0) {
+                  currentBpm = data[data.length - 1].bpm;
+                }
+              }
+            }
+          }
+
+          // Déterminer le statut
+          let status = 'normal';
+          if (currentBpm !== null && isActive) {
+            if (currentBpm < thresholds.bpmMin || currentBpm > thresholds.bpmMax) {
+              status = 'alert'; // Alerte active
+            } else if (
+              Math.abs(currentBpm - thresholds.bpmMin) <= 2 ||
+              Math.abs(currentBpm - thresholds.bpmMax) <= 2
+            ) {
+              status = 'warning'; // Avertissement
+            }
+          }
+
+          return {
+            ...patient,
+            currentBpm,
+            isActive,
+            minThreshold: thresholds.bpmMin,
+            maxThreshold: thresholds.bpmMax,
+            status,
+          };
+        } catch (err) {
+          console.error('Erreur enrichissement patient:', patient.id, err);
+          return {
+            ...patient,
+            currentBpm: null,
+            isActive: false,
+            minThreshold: 60,
+            maxThreshold: 100,
+            status: 'normal',
+          };
+        }
+      })
+    );
+
+    setPatientsWithStatus(enrichedPatients);
+  };
+
+  // Rafraîchir les données toutes les 10 secondes
+  useEffect(() => {
+    if (patients.length === 0) return;
+
+    const interval = setInterval(() => {
+      enrichPatientsWithRealtimeData(patients);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [patients]);
 
   // Enregistrer un nouveau patient
   const handleSubmitPatient = async (e: React.FormEvent) => {
@@ -139,9 +241,8 @@ export default function DoctorDashboard() {
     }
   };
 
-  const totalPatients = patients.length;
-  const criticalPatients = patients.filter((p: any) => p.status === 'critical').length;
-  const warningPatients = patients.filter((p: any) => p.status === 'warning').length;
+  const totalPatients = patientsWithStatus.length;
+  const alertPatients = patientsWithStatus.filter((p: any) => p.status === 'alert').length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -158,6 +259,10 @@ export default function DoctorDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <NotificationsPanel 
+                userId={doctorId} 
+                token={getToken() || ''} 
+              />
               <Button variant="outline" asChild>
                 <Link href="/doctor/activities">
                   <Activity className="h-4 w-4 mr-2" />
@@ -182,7 +287,7 @@ export default function DoctorDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <StatsCard
             title="Total Patients"
             value={totalPatients}
@@ -191,31 +296,28 @@ export default function DoctorDashboard() {
           />
           <StatsCard
             title="Alertes Actives"
-            value={0}
+            value={alertPatients}
             icon={AlertCircle}
-            subtitle="0 non traitées"
-            trend="neutral"
+            subtitle={`${alertPatients} patient${alertPatients > 1 ? 's' : ''} hors limites`}
+            trend={alertPatients > 0 ? 'down' : 'neutral'}
           />
           <StatsCard
-            title="Patients Critiques"
-            value={criticalPatients}
+            title="Patients En Ligne"
+            value={patientsWithStatus.filter(p => p.isActive).length}
             icon={Heart}
-            subtitle="Attention requise"
-            trend={criticalPatients > 0 ? 'down' : 'neutral'}
-          />
-          <StatsCard
-            title="Avertissements"
-            value={warningPatients}
-            icon={Activity}
-            subtitle="Surveillance accrue"
-            trend={warningPatients > 0 ? 'down' : 'neutral'}
+            subtitle="Sessions actives"
+            trend="neutral"
           />
         </div>
 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-foreground">
-            Liste des Patients
-            {!loading && <span className="text-muted-foreground ml-2">({totalPatients})</span>}
+            Alertes Actives
+            {alertPatients > 0 && (
+              <span className="ml-3 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+                {alertPatients} patient{alertPatients > 1 ? 's' : ''} en alerte
+              </span>
+            )}
           </h2>
           <Button onClick={() => setShowAddPatient(true)} disabled={loading}>
             <Plus className="h-4 w-4 mr-2" />
@@ -237,11 +339,55 @@ export default function DoctorDashboard() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {patients.map((patient: any) => (
-              <PatientCard key={patient.id} patient={patient} role="doctor" />
-            ))}
-          </div>
+          <>
+            {/* Section Alertes Actives */}
+            {alertPatients > 0 ? (
+              <div className="mb-8">
+                <div className="bg-red-50 dark:bg-red-950/20 border-2 border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <AlertCircle className="h-6 w-6 text-red-600 animate-pulse" />
+                    <h3 className="text-lg font-semibold text-red-800 dark:text-red-200">
+                      ⚠️ Patients en alerte - Intervention requise
+                    </h3>
+                  </div>
+                  <p className="text-red-700 dark:text-red-300 text-sm">
+                    {alertPatients} patient{alertPatients > 1 ? 's ont' : ' a'} dépassé les seuils de fréquence cardiaque. 
+                    Vérifiez leur état immédiatement.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+                  {patientsWithStatus
+                    .filter((p: any) => p.status === 'alert')
+                    .map((patient: any) => (
+                      <PatientCard key={patient.id} patient={patient} role="doctor" />
+                    ))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-green-50 dark:bg-green-950/20 border-2 border-green-200 dark:border-green-800 rounded-lg p-6 mb-8 text-center">
+                <Heart className="h-12 w-12 mx-auto mb-3 text-green-600" />
+                <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 mb-2">
+                  ✅ Aucune alerte active
+                </h3>
+                <p className="text-green-700 dark:text-green-300 text-sm">
+                  Tous vos patients sont dans les limites normales ou ne sont pas en session active.
+                </p>
+              </div>
+            )}
+
+            {/* Section Tous les Patients */}
+            <div className="border-t pt-8">
+              <h3 className="text-xl font-semibold mb-4 text-foreground">
+                Tous les patients ({totalPatients})
+              </h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {patientsWithStatus.map((patient: any) => (
+                  <PatientCard key={patient.id} patient={patient} role="doctor" />
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </main>
 

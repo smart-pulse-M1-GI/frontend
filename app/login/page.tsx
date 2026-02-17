@@ -97,6 +97,15 @@ export default function LoginPage() {
                 <Button className="w-full" onClick={() => handleLogin('doctor')}>
                   Se connecter
                 </Button>
+                <div className="text-center">
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-2"
+                    onClick={() => router.push('/register/doctor')}
+                  >
+                    Créer un compte médecin
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
