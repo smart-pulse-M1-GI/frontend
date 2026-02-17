@@ -12,6 +12,15 @@ export interface Patient {
   activities: Activity[];
 }
 
+export interface Alert {
+  id: string;
+  type: 'high' | 'low';
+  patientName: string;
+  bpm: number;
+  threshold: number;
+  timestamp: Date;
+}
+
 export interface Activity {
   id: string | number;
   title?: string;
