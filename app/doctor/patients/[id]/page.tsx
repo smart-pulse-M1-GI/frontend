@@ -4,7 +4,17 @@ import { useState, useEffect, use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Heart, ArrowLeft, Activity, TrendingUp, Clock, Loader2, ChevronLeft, ChevronRight, Filter, User } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Heart, ArrowLeft, Activity, TrendingUp, Clock, Loader2, ChevronLeft, ChevronRight, Filter, User, Settings } from 'lucide-react';
 import Link from 'next/link';
 
 interface SessionSummary {
@@ -28,6 +38,11 @@ export default function PatientHistoryPage({ params }: { params: Promise<{ id: s
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [patientInfo, setPatientInfo] = useState<any>(null);
+  
+  // Seuils d'alerte
+  const [thresholds, setThresholds] = useState({ min: 60, max: 100 });
+  const [showThresholdDialog, setShowThresholdDialog] = useState(false);
+  const [savingThresholds, setSavingThresholds] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,6 +81,23 @@ export default function PatientHistoryPage({ params }: { params: Promise<{ id: s
           if (patient) {
             setPatientInfo(patient);
           }
+        }
+
+        // Récupérer les seuils du patient
+        try {
+          const thresholdsRes = await fetch(`${apiUrl}/api/v1/thresholds/patient/${id}`, {
+            headers: getHeaders(),
+          });
+
+          if (thresholdsRes.ok) {
+            const thresholdsData = await thresholdsRes.json();
+            setThresholds({
+              min: thresholdsData.bpmMin || 60,
+              max: thresholdsData.bpmMax || 100,
+            });
+          }
+        } catch (err) {
+          console.log('Seuils non trouvés, utilisation des valeurs par défaut');
         }
       } catch (err) {
         console.error('Erreur chargement patient:', err);
@@ -201,6 +233,45 @@ export default function PatientHistoryPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  // Sauvegarder les seuils d'alerte
+  const handleSaveThresholds = async () => {
+    if (!id) return;
+
+    setSavingThresholds(true);
+    setError('');
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) throw new Error('API URL non configurée');
+
+      console.log('💾 Sauvegarde des seuils:', thresholds);
+
+      const res = await fetch(
+        `${apiUrl}/api/v1/thresholds/set/${id}?min=${thresholds.min}&max=${thresholds.max}`,
+        {
+          method: 'POST',
+          headers: getHeaders(),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error('Erreur lors de la sauvegarde des seuils');
+      }
+
+      console.log('✅ Seuils sauvegardés avec succès');
+      setShowThresholdDialog(false);
+      alert('Seuils d\'alerte mis à jour avec succès!');
+
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erreur de sauvegarde';
+      console.error('[Save Thresholds] Error:', errorMsg);
+      setError(errorMsg);
+      alert('Erreur: ' + errorMsg);
+    } finally {
+      setSavingThresholds(false);
+    }
+  };
+
   // Formater la date
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -254,11 +325,90 @@ export default function PatientHistoryPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
           
-          {/* Badge du nombre total */}
-          <Badge variant="secondary" className="text-sm md:text-lg px-3 md:px-4 py-1.5 md:py-2">
-            <Activity className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-            {sessions.length} session{sessions.length > 1 ? 's' : ''} au total
-          </Badge>
+          <div className="flex items-center gap-3">
+            {/* Bouton Configuration des seuils */}
+            <Dialog open={showThresholdDialog} onOpenChange={setShowThresholdDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Configurer les seuils</span>
+                  <span className="sm:hidden">Seuils</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Configuration des seuils d&apos;alerte</DialogTitle>
+                  <DialogDescription>
+                    Définissez les seuils de fréquence cardiaque pour {patientInfo ? `${patientInfo.prenom} ${patientInfo.nom}` : 'ce patient'}.
+                    Des alertes seront déclenchées si le BPM sort de ces limites.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="minThreshold">Seuil Minimum (BPM)</Label>
+                    <Input
+                      id="minThreshold"
+                      type="number"
+                      value={thresholds.min}
+                      onChange={(e) => setThresholds({ ...thresholds, min: parseInt(e.target.value) || 0 })}
+                      min="30"
+                      max="200"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Alerte si le BPM descend en dessous de cette valeur
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="maxThreshold">Seuil Maximum (BPM)</Label>
+                    <Input
+                      id="maxThreshold"
+                      type="number"
+                      value={thresholds.max}
+                      onChange={(e) => setThresholds({ ...thresholds, max: parseInt(e.target.value) || 0 })}
+                      min="30"
+                      max="200"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Alerte si le BPM dépasse cette valeur
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-sm font-medium mb-1">Aperçu</p>
+                    <p className="text-sm text-muted-foreground">
+                      Zone normale: <span className="font-semibold text-green-600">{thresholds.min} - {thresholds.max} BPM</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleSaveThresholds}
+                    disabled={savingThresholds}
+                    className="flex-1"
+                  >
+                    {savingThresholds && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Enregistrer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowThresholdDialog(false)}
+                    disabled={savingThresholds}
+                  >
+                    Annuler
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Badge du nombre total */}
+            <Badge variant="secondary" className="text-sm md:text-lg px-3 md:px-4 py-1.5 md:py-2">
+              <Activity className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+              {sessions.length}
+            </Badge>
+          </div>
         </div>
 
         {/* Erreur */}
