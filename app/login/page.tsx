@@ -30,7 +30,9 @@ export default function LoginPage() {
       const data = await res.json();
 
       // Stockage du JWT pour les requêtes futures
-      localStorage.setItem('token', data.token);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', data.token);
+      }
 
       // Redirection selon le rôle
       if (role === 'doctor') {

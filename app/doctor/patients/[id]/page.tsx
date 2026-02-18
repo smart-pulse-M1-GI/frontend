@@ -233,30 +233,30 @@ export default function PatientHistoryPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 md:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
             <Link href="/doctor/dashboard">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Retour
               </Button>
             </Link>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <User className="h-6 w-6" />
-                Historique de {patientInfo ? `${patientInfo.prenom} ${patientInfo.nom}` : 'Patient'}
+            <div className="flex-1 sm:flex-none">
+              <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                <User className="h-5 w-5 md:h-6 md:w-6" />
+                <span className="hidden sm:inline">Historique de </span>{patientInfo ? `${patientInfo.prenom} ${patientInfo.nom}` : 'Patient'}
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs md:text-sm text-muted-foreground">
                 {filteredSessions.length} session{filteredSessions.length > 1 ? 's' : ''} trouvée{filteredSessions.length > 1 ? 's' : ''}
               </p>
             </div>
           </div>
           
           {/* Badge du nombre total */}
-          <Badge variant="secondary" className="text-lg px-4 py-2">
-            <Activity className="h-4 w-4 mr-2" />
+          <Badge variant="secondary" className="text-sm md:text-lg px-3 md:px-4 py-1.5 md:py-2">
+            <Activity className="h-3 w-3 md:h-4 md:w-4 mr-2" />
             {sessions.length} session{sessions.length > 1 ? 's' : ''} au total
           </Badge>
         </div>
@@ -361,7 +361,7 @@ export default function PatientHistoryPage({ params }: { params: Promise<{ id: s
                           <span className="font-medium">BPM moyen</span>
                         </div>
                         <span className="font-bold text-primary text-lg">
-                          {Math.round(session.averageBpm)}
+                          {session.averageBpm ? Math.round(session.averageBpm) : '--'}
                         </span>
                       </div>
 
@@ -372,7 +372,9 @@ export default function PatientHistoryPage({ params }: { params: Promise<{ id: s
                           <span className="font-medium">Min - Max</span>
                         </div>
                         <span className="font-semibold">
-                          {Math.round(session.minBpm)} - {Math.round(session.maxBpm)}
+                          {session.minBpm && session.maxBpm 
+                            ? `${Math.round(session.minBpm)} - ${Math.round(session.maxBpm)}`
+                            : '--'}
                         </span>
                       </div>
 

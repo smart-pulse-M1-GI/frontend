@@ -387,22 +387,22 @@ export default function PatientDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <Heart className="h-6 w-6 text-primary-foreground" />
+        <div className="container mx-auto px-4 py-3 md:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg bg-primary flex items-center justify-center">
+                <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">CardioWatch</h1>
-                <p className="text-sm text-muted-foreground">
+                <h1 className="text-base md:text-xl font-bold text-foreground">CardioWatch</h1>
+                <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
                   {patientInfo ? `${patientInfo.prenom} ${patientInfo.nom}` : 'Mon Dashboard'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               {/* Indicateur de connexion WebSocket */}
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+              <div className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border transition-all ${
                 connectionStatus === 'connected' 
                   ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' 
                   : connectionStatus === 'connecting'
@@ -410,11 +410,11 @@ export default function PatientDashboard() {
                   : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
               }`}>
                 {connectionStatus === 'connected' ? (
-                  <Wifi className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <Wifi className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
                 ) : (
-                  <WifiOff className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  <WifiOff className="h-3 w-3 md:h-4 md:w-4 text-red-600 dark:text-red-400" />
                 )}
-                <span className={`text-sm font-medium ${
+                <span className={`text-xs md:text-sm font-medium hidden sm:inline ${
                   connectionStatus === 'connected' 
                     ? 'text-green-700 dark:text-green-300' 
                     : connectionStatus === 'connecting'
@@ -427,19 +427,19 @@ export default function PatientDashboard() {
                 </span>
               </div>
               
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild size="sm" className="hidden md:flex">
                 <Link href="/patient/history">Historique</Link>
               </Button>
-              <Button variant="ghost" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Déconnexion
+              <Button variant="ghost" onClick={handleLogout} size="sm">
+                <LogOut className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Déconnexion</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         {error && (
           <div className="mb-6 p-4 rounded-lg border border-destructive/20 bg-destructive/10">
             <p className="text-destructive text-center">{error}</p>
@@ -567,7 +567,7 @@ export default function PatientDashboard() {
         
 
         {/* ==================== STATISTIQUES ==================== */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
           <StatsCard
             title="Fréquence Actuelle"
             value={currentBpm || '--'}
@@ -590,7 +590,7 @@ export default function PatientDashboard() {
         </div>
 
         {/* ==================== GRAPHIQUES ET ACTIVITÉS ==================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <div className="lg:col-span-2">
             <HeartRateChart 
               data={heartRateData}
@@ -602,7 +602,7 @@ export default function PatientDashboard() {
 
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">Activités Prescrites</h2>
+              <h2 className="text-base md:text-lg font-semibold text-foreground">Activités Prescrites</h2>
               <Badge variant="secondary">
                 <ActivityIcon className="h-3 w-3 mr-1" />
                 {activities.length}

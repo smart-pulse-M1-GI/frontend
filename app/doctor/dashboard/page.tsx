@@ -112,7 +112,14 @@ export default function DoctorDashboard() {
 
           let thresholds = { bpmMin: 60, bpmMax: 100 };
           if (thresholdsRes.ok) {
-            thresholds = await thresholdsRes.json();
+            const text = await thresholdsRes.text();
+            if (text) {
+              try {
+                thresholds = JSON.parse(text);
+              } catch (e) {
+                console.warn('Impossible de parser les seuils pour patient', patient.id);
+              }
+            }
           }
 
           // Récupérer la session active
@@ -125,22 +132,36 @@ export default function DoctorDashboard() {
           let isActive = false;
           
           if (sessionsRes.ok) {
-            const sessions = await sessionsRes.json();
-            const activeSession = sessions.find((s: any) => !s.endTime);
-            
-            if (activeSession) {
-              isActive = true;
-              // Récupérer les dernières données
-              const dataRes = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/v1/cardiac/session/${activeSession.id}/data`,
-                { headers: getHeaders() }
-              );
-              
-              if (dataRes.ok) {
-                const data = await dataRes.json();
-                if (data.length > 0) {
-                  currentBpm = data[data.length - 1].bpm;
+            const sessionsText = await sessionsRes.text();
+            if (sessionsText) {
+              try {
+                const sessions = JSON.parse(sessionsText);
+                const activeSession = sessions.find((s: any) => !s.endTime);
+                
+                if (activeSession) {
+                  isActive = true;
+                  // Récupérer les dernières données
+                  const dataRes = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/cardiac/session/${activeSession.id}/data`,
+                    { headers: getHeaders() }
+                  );
+                  
+                  if (dataRes.ok) {
+                    const dataText = await dataRes.text();
+                    if (dataText) {
+                      try {
+                        const data = JSON.parse(dataText);
+                        if (data.length > 0) {
+                          currentBpm = data[data.length - 1].bpm;
+                        }
+                      } catch (e) {
+                        console.warn('Impossible de parser les données de session');
+                      }
+                    }
+                  }
                 }
+              } catch (e) {
+                console.warn('Impossible de parser les sessions pour patient', patient.id);
               }
             }
           }
@@ -250,47 +271,50 @@ export default function DoctorDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <Heart className="h-6 w-6 text-primary-foreground" />
+        <div className="container mx-auto px-4 py-3 md:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg bg-primary flex items-center justify-center">
+                <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">CardioWatch</h1>
-                <p className="text-sm text-muted-foreground">Dashboard Médecin</p>
+                <h1 className="text-base md:text-xl font-bold text-foreground">CardioWatch</h1>
+                <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Dashboard Médecin</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               <NotificationsPanel 
                 userId={doctorId} 
                 token={getToken() || ''} 
               />
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild size="sm" className="hidden md:flex">
                 <Link href="/doctor/activities">
                   <Activity className="h-4 w-4 mr-2" />
                   Gérer les activités
                 </Link>
               </Button>
               <Button onClick={() => {
-                localStorage.removeItem('token');
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('token');
+                }
                 router.push('/login');
-              }}>
-                Se déconnecter
+              }} size="sm">
+                <span className="hidden md:inline">Se déconnecter</span>
+                <span className="md:hidden">Déco</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         {error && (
           <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-lg mb-4">
             {error}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
           <StatsCard
             title="Total Patients"
             value={totalPatients}
@@ -313,8 +337,8 @@ export default function DoctorDashboard() {
           />
         </div>
 
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-foreground">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-0 mb-4 md:mb-6">
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Alertes Actives
             {alertPatients > 0 && (
               <span className="ml-3 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">

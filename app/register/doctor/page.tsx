@@ -21,6 +21,7 @@ export default function DoctorRegisterPage() {
     nom: '',
     prenom: '',
     dateNaissance: '',
+    specialite: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,21 +43,40 @@ export default function DoctorRegisterPage() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register/doctor`, {
+      console.log('📤 Envoi de la requête d\'inscription médecin...');
+      console.log('URL:', `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register/medecin`);
+      
+      const payload = {
+        mail: formData.mail,
+        password: formData.password,
+        nom: formData.nom,
+        prenom: formData.prenom,
+        dateNaissance: formData.dateNaissance,
+        specialite: formData.specialite || 'Médecin généraliste',
+      };
+      
+      console.log('Payload:', payload);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register/medecin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mail: formData.mail,
-          password: formData.password,
-          nom: formData.nom,
-          prenom: formData.prenom,
-          dateNaissance: formData.dateNaissance,
-        }),
+        body: JSON.stringify(payload),
       });
 
+      console.log('📥 Réponse reçue:', res.status, res.statusText);
+
       if (!res.ok) {
-        const errorData = await res.text();
-        throw new Error(errorData || 'Erreur lors de l\'inscription');
+        const errorText = await res.text();
+        console.error('❌ Erreur backend:', errorText);
+        throw new Error(errorText || `Erreur HTTP ${res.status}`);
+      }
+
+      const responseData = await res.json();
+      console.log('✅ Inscription réussie:', responseData);
+      
+      // Sauvegarder le token si présent
+      if (responseData.token) {
+        localStorage.setItem('token', responseData.token);
       }
 
       // Inscription réussie
@@ -64,8 +84,10 @@ export default function DoctorRegisterPage() {
       router.push('/login');
 
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Erreur lors de l\'inscription');
+      console.error('❌ Erreur complète:', err);
+      const errorMessage = err.message || 'Erreur lors de l\'inscription';
+      setError(errorMessage);
+      alert('Erreur: ' + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -152,6 +174,17 @@ export default function DoctorRegisterPage() {
                   value={formData.dateNaissance}
                   onChange={(e) => setFormData({ ...formData, dateNaissance: e.target.value })}
                   required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="specialite">Spécialité *</Label>
+                <Input
+                  id="specialite"
+                  value={formData.specialite}
+                  onChange={(e) => setFormData({ ...formData, specialite: e.target.value })}
+                  required
+                  placeholder="Ex: Cardiologue, Médecin généraliste..."
                 />
               </div>
 
