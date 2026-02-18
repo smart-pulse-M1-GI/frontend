@@ -41,7 +41,10 @@ export default function DoctorDashboard() {
 
   // Récupérer le token JWT
   const getToken = () => {
-    return localStorage.getItem('token');
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('token');
+    }
+    return null;
   };
 
   // Headers avec authentification

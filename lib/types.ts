@@ -14,11 +14,13 @@ export interface Patient {
 
 export interface Alert {
   id: string;
+  patientId: string;
   type: 'high' | 'low';
   patientName: string;
   bpm: number;
   threshold: number;
   timestamp: Date;
+  acknowledged?: boolean;
 }
 
 export interface Activity {
