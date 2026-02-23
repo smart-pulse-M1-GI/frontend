@@ -6,7 +6,7 @@ import { PatientCard } from '@/components/patient-card';
 import { StatsCard } from '@/components/stats-card';
 import { NotificationsPanel } from '@/components/notifications-panel';
 import { Patient } from '@/lib/types';
-import { Heart, Users, AlertCircle, Activity, Plus, Loader2 } from 'lucide-react';
+import { Heart, Users, AlertCircle, Activity, Plus, Loader2, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -274,7 +274,7 @@ export default function DoctorDashboard() {
         <div className="container mx-auto px-4 py-3 md:py-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 md:gap-3">
-              <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg bg-primary flex items-center justify-center">
+              <div className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 rounded-lg bg-primary flex items-center justify-center">
                 <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
               </div>
               <div>
@@ -285,12 +285,13 @@ export default function DoctorDashboard() {
             <div className="flex items-center gap-2 md:gap-3">
               <NotificationsPanel 
                 userId={doctorId} 
-                token={getToken() || ''} 
+                token={getToken() || ''}
+                userRole="doctor"
               />
-              <Button variant="outline" asChild size="sm" className="hidden md:flex">
+              <Button variant="outline" asChild size="sm">
                 <Link href="/doctor/activities">
-                  <Activity className="h-4 w-4 mr-2" />
-                  Gérer les activités
+                  <Activity className="h-4 w-4 flex-shrink-0" />
+                  <span className="hidden sm:inline ml-2">Gérer les activités</span>
                 </Link>
               </Button>
               <Button onClick={() => {
@@ -298,9 +299,8 @@ export default function DoctorDashboard() {
                   localStorage.removeItem('token');
                 }
                 router.push('/login');
-              }} size="sm">
-                <span className="hidden md:inline">Se déconnecter</span>
-                <span className="md:hidden">Déco</span>
+              }} variant="ghost" size="sm">
+                <LogOut className="h-4 w-4 flex-shrink-0" />
               </Button>
             </div>
           </div>
@@ -319,20 +319,20 @@ export default function DoctorDashboard() {
             title="Total Patients"
             value={totalPatients}
             icon={Users}
-            subtitle="Sous surveillance"
+            subtitle=""
           />
           <StatsCard
             title="Alertes Actives"
             value={alertPatients}
             icon={AlertCircle}
-            subtitle={`${alertPatients} patient${alertPatients > 1 ? 's' : ''} hors limites`}
+            subtitle={`${alertPatients} hors limites`}
             trend={alertPatients > 0 ? 'down' : 'neutral'}
           />
           <StatsCard
             title="Patients En Ligne"
             value={patientsWithStatus.filter(p => p.isActive).length}
             icon={Heart}
-            subtitle="Sessions actives"
+            subtitle=""
             trend="neutral"
           />
         </div>

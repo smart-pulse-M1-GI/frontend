@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { HeartRateChart } from '@/components/heart-rate-chart';
 import { ActivityCard } from '@/components/activity-card';
 import { StatsCard } from '@/components/stats-card';
+import { NotificationsPanel } from '@/components/notifications-panel';
 import { Badge } from '@/components/ui/badge';
 import { Activity, HeartRateData } from '@/lib/types';
 import { Heart, Clock, TrendingUp, ActivityIcon, Loader2, LogOut, Play, Square, Wifi, WifiOff } from 'lucide-react';
@@ -390,17 +391,24 @@ export default function PatientDashboard() {
         <div className="container mx-auto px-4 py-3 md:py-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 md:gap-3">
-              <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg bg-primary flex items-center justify-center">
+              <div className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 rounded-lg bg-primary flex items-center justify-center">
                 <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
               </div>
-              <div>
+              <div className="hidden sm:block">
                 <h1 className="text-base md:text-xl font-bold text-foreground">CardioWatch</h1>
-                <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
+                <p className="text-xs md:text-sm text-muted-foreground">
                   {patientInfo ? `${patientInfo.prenom} ${patientInfo.nom}` : 'Mon Dashboard'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 md:gap-3">
+              {/* Panneau de notifications */}
+              <NotificationsPanel 
+                userId={patientId} 
+                token={getToken() || ''}
+                userRole="patient"
+              />
+              
               {/* Indicateur de connexion WebSocket */}
               <div className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border transition-all ${
                 connectionStatus === 'connected' 
@@ -410,9 +418,9 @@ export default function PatientDashboard() {
                   : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
               }`}>
                 {connectionStatus === 'connected' ? (
-                  <Wifi className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
+                  <Wifi className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
                 ) : (
-                  <WifiOff className="h-3 w-3 md:h-4 md:w-4 text-red-600 dark:text-red-400" />
+                  <WifiOff className="h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
                 )}
                 <span className={`text-xs md:text-sm font-medium hidden sm:inline ${
                   connectionStatus === 'connected' 
@@ -427,12 +435,14 @@ export default function PatientDashboard() {
                 </span>
               </div>
               
-              <Button variant="outline" asChild size="sm" className="hidden md:flex">
-                <Link href="/patient/history">Historique</Link>
+              <Button variant="outline" asChild size="sm">
+                <Link href="/patient/history">
+                  <span className="hidden sm:inline">Historique</span>
+                  <span className="sm:hidden">Hist.</span>
+                </Link>
               </Button>
               <Button variant="ghost" onClick={handleLogout} size="sm">
-                <LogOut className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Déconnexion</span>
+                <LogOut className="h-4 w-4 flex-shrink-0" />
               </Button>
             </div>
           </div>
@@ -458,9 +468,9 @@ export default function PatientDashboard() {
         {/* ==================== CONTRÔLE DE SESSION LIBRE ==================== */}
         <Card className="mb-6 border-2 border-primary/20">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+            <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                <div className={`h-12 w-12 flex-shrink-0 rounded-full flex items-center justify-center ${
                   isFreeSessionActive || activeActivity
                     ? 'bg-green-100 dark:bg-green-900' 
                     : 'bg-gray-100 dark:bg-gray-800'
@@ -471,8 +481,8 @@ export default function PatientDashboard() {
                     <Heart className="h-6 w-6 text-gray-400" />
                   )}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Session de monitoring cardiaque</h3>
+                <div className="text-center sm:text-left">
+                  <h3 className="font-semibold text-base sm:text-lg">Session de monitoring cardiaque</h3>
                   {activeActivity ? (
                     <>
                       <p className="text-sm text-muted-foreground">
@@ -498,7 +508,7 @@ export default function PatientDashboard() {
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      ⭕ Aucune session active - Démarrez une activité ci-dessous ou une session libre
+                      ⭕ Aucune session active
                     </p>
                   )}
                 </div>
@@ -508,7 +518,7 @@ export default function PatientDashboard() {
                 <Button 
                   onClick={handleStartFreeSession} 
                   size="lg"
-                  className="gap-2 px-6"
+                  className="gap-2 px-6 w-full sm:w-auto"
                   disabled={connectionStatus !== 'connected'}
                 >
                   <Play className="h-5 w-5" />
@@ -519,10 +529,10 @@ export default function PatientDashboard() {
                   onClick={handleStopFreeSession} 
                   variant="destructive" 
                   size="lg"
-                  className="gap-2 px-6"
+                  className="gap-2 px-6 w-full sm:w-auto"
                 >
                   <Square className="h-5 w-5" />
-                  Arrêter la session
+                  Arrêter
                 </Button>
               ) : null}
             </div>
@@ -571,20 +581,20 @@ export default function PatientDashboard() {
           <StatsCard
             title="Fréquence Actuelle"
             value={currentBpm || '--'}
-            subtitle={currentBpm > 0 ? (isOutOfRange ? 'Hors limites!' : 'Normal') : 'En attente...'}
+            subtitle={currentBpm > 0 ? (isOutOfRange ? 'Hors limites!' : '') : ''}
             icon={Heart}
             trend={isOutOfRange ? 'down' : 'neutral'}
           />
           <StatsCard
             title="Moyenne (1 min)"
             value={avgBpm || '--'}
-            subtitle="BPM moyen"
+            subtitle=""
             icon={TrendingUp}
           />
           <StatsCard
             title="Temps d'Activité"
             value={formatTime(timer)}
-            subtitle={activeActivity ? activeActivity.title : isFreeSessionActive ? 'Session libre' : 'Aucune activité'}
+            subtitle=""
             icon={Clock}
           />
         </div>

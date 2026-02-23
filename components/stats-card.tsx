@@ -18,20 +18,18 @@ export function StatsCard({ title, value, subtitle, icon: Icon, trend }: StatsCa
 
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-            <p className="text-3xl font-bold text-foreground">{value}</p>
-            {subtitle && (
-              <p className={`text-sm mt-1 ${trend ? trendColors[trend] : 'text-muted-foreground'}`}>
-                {subtitle}
-              </p>
-            )}
+      <CardContent className="p-4 md:p-6">
+        <div className="flex flex-col items-center text-center">
+          <div className="h-12 w-12 md:h-14 md:w-14 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+            <Icon className="h-6 w-6 md:h-7 md:w-7 text-primary" />
           </div>
-          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <Icon className="h-6 w-6 text-primary" />
-          </div>
+          <p className="text-xs md:text-sm font-medium text-muted-foreground mb-2">{title}</p>
+          <p className="text-2xl md:text-3xl font-bold text-foreground mb-1">{value}</p>
+          {subtitle && (
+            <p className={`text-xs md:text-sm ${trend ? trendColors[trend] : 'text-muted-foreground'}`}>
+              {subtitle}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

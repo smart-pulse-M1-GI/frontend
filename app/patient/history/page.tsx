@@ -227,29 +227,37 @@ export default function PatientHistory() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 md:p-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4 w-full sm:w-auto">
+      {/* Header avec icône */}
+      <header className="border-b border-border bg-card sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3 md:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 rounded-lg bg-primary flex items-center justify-center">
+                <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-base md:text-xl font-bold text-foreground">CardioWatch</h1>
+                <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Historique des Activités</p>
+              </div>
+            </div>
             <Link href="/patient/dashboard">
               <Button variant="outline" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Retour
+                <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline ml-2">Retour</span>
               </Button>
             </Link>
-            <div className="flex-1 sm:flex-none">
-              <h1 className="text-xl md:text-2xl font-bold">Historique des Activités</h1>
-              <p className="text-xs md:text-sm text-muted-foreground">
-                {filteredSessions.length} session{filteredSessions.length > 1 ? 's' : ''} trouvée{filteredSessions.length > 1 ? 's' : ''}
-              </p>
-            </div>
           </div>
-          
-          {/* Badge du nombre total */}
-          <Badge variant="secondary" className="text-sm md:text-lg px-3 md:px-4 py-1.5 md:py-2">
-            <Activity className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-            {sessions.length} session{sessions.length > 1 ? 's' : ''} au total
-          </Badge>
+        </div>
+      </header>
+
+      <div className="container mx-auto p-4 md:p-6">
+        {/* Info sessions */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              {filteredSessions.length} session{filteredSessions.length > 1 ? 's' : ''} trouvée{filteredSessions.length > 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
 
         {/* Erreur */}
@@ -401,33 +409,37 @@ export default function PatientHistory() {
             {totalPages > 1 && (
               <Card>
                 <CardContent className="pt-6">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="text-xs md:text-sm text-muted-foreground text-center sm:text-left">
+                  <div className="flex flex-col items-center gap-4">
+                    {/* Info pagination */}
+                    <div className="text-xs md:text-sm text-muted-foreground text-center">
                       Page {currentPage} sur {totalPages} 
-                      <span className="ml-2">
+                      <span className="block sm:inline sm:ml-2">
                         ({startIndex + 1}-{Math.min(endIndex, filteredSessions.length)} sur {filteredSessions.length})
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                    {/* Boutons de navigation */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={goToPreviousPage}
                         disabled={currentPage === 1}
+                        className="flex-1 sm:flex-none"
                       >
-                        <ChevronLeft className="h-4 w-4 mr-1" />
-                        <span className="hidden sm:inline">Précédent</span>
+                        <ChevronLeft className="h-4 w-4" />
+                        <span className="sm:ml-1">Préc.</span>
                       </Button>
                       
-                      <div className="flex items-center gap-1">
+                      {/* Numéros de page - masqués sur très petit écran si trop nombreux */}
+                      <div className="flex items-center gap-1 flex-1 justify-center sm:flex-none">
                         {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                           <Button
                             key={page}
                             variant={currentPage === page ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setCurrentPage(page)}
-                            className="w-8 md:w-10"
+                            className="w-8 h-8 p-0 text-xs md:text-sm"
                           >
                             {page}
                           </Button>
@@ -439,9 +451,10 @@ export default function PatientHistory() {
                         size="sm"
                         onClick={goToNextPage}
                         disabled={currentPage === totalPages}
+                        className="flex-1 sm:flex-none"
                       >
-                        <span className="hidden sm:inline">Suivant</span>
-                        <ChevronRight className="h-4 w-4 ml-1" />
+                        <span className="sm:mr-1">Suiv.</span>
+                        <ChevronRight className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>

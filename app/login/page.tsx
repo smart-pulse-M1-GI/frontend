@@ -7,15 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart } from 'lucide-react';
+import { Heart, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Fonction de login avec vérification backend
   const handleLogin = async (role: 'doctor' | 'patient') => {
+    setIsLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
         method: 'POST',
@@ -44,6 +46,7 @@ export default function LoginPage() {
     } catch (err) {
       console.error(err);
       alert('Email ou mot de passe incorrect');
+      setIsLoading(false);
     }
   };
 
@@ -96,8 +99,15 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
-                <Button className="w-full" onClick={() => handleLogin('doctor')}>
-                  Se connecter
+                <Button className="w-full" onClick={() => handleLogin('doctor')} disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connexion en cours...
+                    </>
+                  ) : (
+                    'Se connecter'
+                  )}
                 </Button>
                 <div className="text-center">
                   <Button 
@@ -140,8 +150,15 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
-                <Button className="w-full" onClick={() => handleLogin('patient')}>
-                  Se connecter
+                <Button className="w-full" onClick={() => handleLogin('patient')} disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connexion en cours...
+                    </>
+                  ) : (
+                    'Se connecter'
+                  )}
                 </Button>
               </CardContent>
             </Card>

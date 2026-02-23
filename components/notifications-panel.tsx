@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, X } from 'lucide-react';
+import { Bell, X, RefreshCw } from 'lucide-react';
 
 interface Notification {
   id: number;
@@ -16,19 +16,22 @@ interface Notification {
 interface NotificationsPanelProps {
   userId: string;
   token: string;
+  userRole?: 'doctor' | 'patient'; // Optionnel, pour savoir si on doit charger les patients
 }
 
 const API_BASE_URL = 'http://localhost:8080/api/v1';
 
-export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
+export function NotificationsPanel({ userId, token, userRole = 'doctor' }: NotificationsPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
 
-  // Récupérer la liste des patients pour enrichir les notifications
+  // Récupérer la liste des patients pour enrichir les notifications (seulement pour les médecins)
   const fetchPatients = async () => {
+    if (userRole !== 'doctor') return; // Ne pas charger les patients si c'est un patient
+    
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/my-patients`, {
         headers: {
@@ -87,6 +90,27 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
     return enrichedMessage;
   };
 
+  // Récupérer le nombre de notifications non lues
+  const fetchUnreadCount = async () => {
+    if (!userId || !token) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/notifications/user/${userId}/unread`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const unreadNotifications = await response.json();
+        setUnreadCount(unreadNotifications.length);
+        console.log('✅ Notifications non lues:', unreadNotifications.length);
+      }
+    } catch (error) {
+      console.error('❌ Erreur comptage notifications:', error);
+    }
+  };
+
   // Récupérer les notifications
   const fetchNotifications = async () => {
     if (!userId || !token) return;
@@ -120,6 +144,8 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
   // Marquer une notification comme lue
   const markAsRead = async (notificationId: number) => {
     try {
+      console.log('📝 Marquage notification comme lue:', notificationId);
+      
       const response = await fetch(
         `${API_BASE_URL}/notifications/${notificationId}/read`,
         {
@@ -131,14 +157,24 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
         }
       );
 
+      console.log('📡 Réponse serveur:', response.status);
+
       if (response.ok) {
-        setNotifications(prev =>
+        // Mettre à jour l'état local immédiatement
+        setNotifications(prev => 
           prev.map(n =>
             n.id === notificationId ? { ...n, isRead: true } : n
           )
         );
+        
+        // Décrémenter le compteur immédiatement
         setUnreadCount(prev => Math.max(0, prev - 1));
+        
         console.log('✅ Notification marquée comme lue');
+      } else {
+        console.error('❌ Erreur marquage notification:', response.status);
+        const errorText = await response.text();
+        console.error('Détails erreur:', errorText);
       }
     } catch (error) {
       console.error('❌ Erreur marquage:', error);
@@ -150,6 +186,8 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
     if (!userId || !token) return;
 
     try {
+      console.log('📝 Marquage de toutes les notifications comme lues');
+      
       const response = await fetch(
         `${API_BASE_URL}/notifications/user/${userId}/read-all`,
         {
@@ -160,10 +198,17 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
         }
       );
 
+      console.log('📡 Réponse serveur:', response.status);
+
       if (response.ok) {
+        // Mettre à jour immédiatement
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
         setUnreadCount(0);
         console.log('✅ Toutes marquées comme lues');
+      } else {
+        console.error('❌ Erreur marquage toutes:', response.status);
+        const errorText = await response.text();
+        console.error('Détails erreur:', errorText);
       }
     } catch (error) {
       console.error('❌ Erreur:', error);
@@ -177,22 +222,26 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
     }
   }, [userId, token]);
 
-  // Charger au clic
+  // Charger au clic sur la cloche (seulement à l'ouverture, pas à la fermeture)
   useEffect(() => {
     if (isOpen) {
+      // Recharger les notifications à l'ouverture
       fetchNotifications();
     }
   }, [isOpen]);
 
-  // Auto-refresh toutes les 30 secondes
+  // Auto-refresh du compteur toutes les 10 secondes
   useEffect(() => {
     if (!userId || !token) return;
 
     // Premier chargement
     fetchNotifications();
 
-    // Refresh automatique
-    const interval = setInterval(fetchNotifications, 30000);
+    // Refresh automatique du compteur uniquement
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 10000); // Toutes les 10 secondes
+    
     return () => clearInterval(interval);
   }, [userId, token]);
 
@@ -247,7 +296,7 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
           />
           
           {/* Panel */}
-          <Card className="absolute right-0 top-12 w-96 max-h-[500px] z-50 shadow-2xl">
+          <Card className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-12 left-2 sm:left-auto sm:w-96 max-h-[70vh] sm:max-h-[500px] z-50 shadow-2xl">
             <CardHeader className="border-b bg-background p-4 flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-lg">Notifications</CardTitle>
@@ -258,6 +307,15 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
                 )}
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fetchNotifications()}
+                  disabled={isLoading}
+                  title="Rafraîchir"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
                 {unreadCount > 0 && (
                   <Button
                     variant="ghost"
@@ -278,7 +336,7 @@ export function NotificationsPanel({ userId, token }: NotificationsPanelProps) {
               </div>
             </CardHeader>
 
-            <CardContent className="p-0 max-h-96 overflow-y-auto">
+            <CardContent className="p-0 max-h-[calc(70vh-80px)] sm:max-h-96 overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center h-20">
                   <p className="text-sm text-muted-foreground">Chargement...</p>
