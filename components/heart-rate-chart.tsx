@@ -17,60 +17,72 @@ export function HeartRateChart({ data, minThreshold, maxThreshold, showThreshold
     bpm: Math.round(d.bpm),
   }));
 
+  // Si pas de données, afficher un message
+  const hasData = data.length > 0;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Fréquence Cardiaque en Temps Réel</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.01 240)" />
-            <XAxis 
-              dataKey="time" 
-              stroke="oklch(0.5 0.015 240)"
-              tick={{ fill: 'oklch(0.5 0.015 240)' }}
-              tickLine={{ stroke: 'oklch(0.5 0.015 240)' }}
-            />
-            <YAxis 
-              stroke="oklch(0.5 0.015 240)"
-              tick={{ fill: 'oklch(0.5 0.015 240)' }}
-              tickLine={{ stroke: 'oklch(0.5 0.015 240)' }}
-              domain={[40, 180]}
-            />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'oklch(1 0 0)', 
-                border: '1px solid oklch(0.92 0.01 240)',
-                borderRadius: '0.5rem'
-              }}
-            />
-            {showThresholds && maxThreshold && (
-              <ReferenceLine 
-                y={maxThreshold} 
-                stroke="oklch(0.55 0.22 25)" 
-                strokeDasharray="3 3"
-                label={{ value: 'Max', fill: 'oklch(0.55 0.22 25)' }}
+        {!hasData ? (
+          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+            <div className="text-center">
+              <p className="text-lg mb-2">Aucune donnée disponible</p>
+              <p className="text-sm">Démarrez une session pour voir les données en temps réel</p>
+            </div>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.01 240)" />
+              <XAxis 
+                dataKey="time" 
+                stroke="oklch(0.5 0.015 240)"
+                tick={{ fill: 'oklch(0.5 0.015 240)' }}
+                tickLine={{ stroke: 'oklch(0.5 0.015 240)' }}
               />
-            )}
-            {showThresholds && minThreshold && (
-              <ReferenceLine 
-                y={minThreshold} 
-                stroke="oklch(0.55 0.22 25)" 
-                strokeDasharray="3 3"
-                label={{ value: 'Min', fill: 'oklch(0.55 0.22 25)' }}
+              <YAxis 
+                stroke="oklch(0.5 0.015 240)"
+                tick={{ fill: 'oklch(0.5 0.015 240)' }}
+                tickLine={{ stroke: 'oklch(0.5 0.015 240)' }}
+                domain={[40, 180]}
               />
-            )}
-            <Line 
-              type="monotone" 
-              dataKey="bpm" 
-              stroke="oklch(0.55 0.18 245)" 
-              strokeWidth={2}
-              dot={false}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'oklch(1 0 0)', 
+                  border: '1px solid oklch(0.92 0.01 240)',
+                  borderRadius: '0.5rem'
+                }}
+              />
+              {showThresholds && maxThreshold && (
+                <ReferenceLine 
+                  y={maxThreshold} 
+                  stroke="oklch(0.55 0.22 25)" 
+                  strokeDasharray="3 3"
+                  label={{ value: 'Max', fill: 'oklch(0.55 0.22 25)' }}
+                />
+              )}
+              {showThresholds && minThreshold && (
+                <ReferenceLine 
+                  y={minThreshold} 
+                  stroke="oklch(0.55 0.22 25)" 
+                  strokeDasharray="3 3"
+                  label={{ value: 'Min', fill: 'oklch(0.55 0.22 25)' }}
+                />
+              )}
+              <Line 
+                type="monotone" 
+                dataKey="bpm" 
+                stroke="oklch(0.55 0.18 245)" 
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   );

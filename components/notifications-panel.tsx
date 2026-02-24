@@ -117,6 +117,8 @@ export function NotificationsPanel({ userId, token, userRole = 'doctor' }: Notif
 
     setIsLoading(true);
     try {
+      console.log('🔄 Chargement des notifications pour userId:', userId);
+      
       const response = await fetch(`${API_BASE_URL}/notifications/user/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -125,12 +127,15 @@ export function NotificationsPanel({ userId, token, userRole = 'doctor' }: Notif
 
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Notifications chargées:', data.length, 'notifications');
+        console.log('📊 Détails:', data.map((n: Notification) => ({ id: n.id, isRead: n.isRead })));
+        
         setNotifications(data);
         
         // Compter les non-lues
         const unread = data.filter((n: Notification) => !n.isRead).length;
         setUnreadCount(unread);
-        console.log('✅ Notifications chargées:', data);
+        console.log('📊 Notifications non lues:', unread);
       } else {
         console.error('❌ Erreur chargement notifications:', response.status);
       }
@@ -143,8 +148,16 @@ export function NotificationsPanel({ userId, token, userRole = 'doctor' }: Notif
 
   // Marquer une notification comme lue
   const markAsRead = async (notificationId: number) => {
+    // Ne pas marquer si déjà lue
+    const notification = notifications.find(n => n.id === notificationId);
+    if (notification?.isRead) {
+      console.log('⚠️ Notification déjà lue, skip');
+      return;
+    }
+
     try {
       console.log('📝 Marquage notification comme lue:', notificationId);
+      console.log('🔗 URL:', `${API_BASE_URL}/notifications/${notificationId}/read`);
       
       const response = await fetch(
         `${API_BASE_URL}/notifications/${notificationId}/read`,
@@ -157,9 +170,11 @@ export function NotificationsPanel({ userId, token, userRole = 'doctor' }: Notif
         }
       );
 
-      console.log('📡 Réponse serveur:', response.status);
+      console.log('📡 Réponse serveur:', response.status, response.statusText);
 
       if (response.ok) {
+        console.log('✅ Backend a confirmé le marquage');
+        
         // Mettre à jour l'état local immédiatement
         setNotifications(prev => 
           prev.map(n =>
@@ -168,16 +183,20 @@ export function NotificationsPanel({ userId, token, userRole = 'doctor' }: Notif
         );
         
         // Décrémenter le compteur immédiatement
-        setUnreadCount(prev => Math.max(0, prev - 1));
-        
-        console.log('✅ Notification marquée comme lue');
+        setUnreadCount(prev => {
+          const newCount = Math.max(0, prev - 1);
+          console.log('📊 Nouveau compteur:', newCount);
+          return newCount;
+        });
       } else {
         console.error('❌ Erreur marquage notification:', response.status);
         const errorText = await response.text();
         console.error('Détails erreur:', errorText);
+        alert(`Erreur: ${response.status} - ${errorText || 'Impossible de marquer la notification'}`);
       }
     } catch (error) {
       console.error('❌ Erreur marquage:', error);
+      alert('Erreur réseau lors du marquage de la notification');
     }
   };
 

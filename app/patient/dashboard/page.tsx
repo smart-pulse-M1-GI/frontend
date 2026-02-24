@@ -128,16 +128,9 @@ export default function PatientDashboard() {
 
   // Initialiser les données du graphique
   const initializeChartData = () => {
-    const now = new Date();
-    const initialData: HeartRateData[] = [];
-    for (let i = 59; i >= 0; i--) {
-      initialData.push({
-        timestamp: new Date(now.getTime() - i * 1000),
-        bpm: 70 + (Math.random() - 0.5) * 10,
-      });
-    }
-    setHeartRateData(initialData);
-    setCurrentBpm(Math.round(initialData[initialData.length - 1].bpm));
+    // Ne plus initialiser avec des données par défaut
+    setHeartRateData([]);
+    setCurrentBpm(0);
   };
 
   // ==================== CONFIGURATION WEBSOCKET ====================
@@ -161,7 +154,7 @@ export default function PatientDashboard() {
         client.subscribe('/topic/pulse', (message) => {
           if (message.body) {
             const data = JSON.parse(message.body);
-            const newBpm = Math.round(parseFloat(data.bpm));
+            const newBpm = Math.round(parseFloat(data.bpm_current || data.bpm)); // Support des deux formats
             
             console.log('📊 Données BPM reçues:', newBpm);
             setCurrentBpm(newBpm);
@@ -369,7 +362,10 @@ export default function PatientDashboard() {
     ? Math.round(heartRateData.reduce((sum, d) => sum + d.bpm, 0) / heartRateData.length)
     : 0;
 
-  const isOutOfRange = currentBpm < minThreshold || currentBpm > maxThreshold;
+  const isOutOfRange = currentBpm > 0 && (currentBpm < minThreshold || currentBpm > maxThreshold);
+
+  // Vérifier si une session est active
+  const hasActiveSession = isFreeSessionActive || activeActivity !== null;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -456,7 +452,7 @@ export default function PatientDashboard() {
           </div>
         )}
 
-        {isOutOfRange && currentBpm > 0 && (
+        {isOutOfRange && currentBpm > 0 && hasActiveSession && (
           <div className="mb-6 p-4 rounded-lg border-2 border-destructive bg-destructive/10 animate-pulse">
             <p className="text-destructive font-semibold text-center">
               ⚠️ Votre fréquence cardiaque est en dehors des limites normales ({minThreshold}-{maxThreshold} BPM). 
@@ -580,20 +576,20 @@ export default function PatientDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
           <StatsCard
             title="Fréquence Actuelle"
-            value={currentBpm || '--'}
-            subtitle={currentBpm > 0 ? (isOutOfRange ? 'Hors limites!' : '') : ''}
+            value={hasActiveSession && currentBpm > 0 ? currentBpm : '--'}
+            subtitle={hasActiveSession && currentBpm > 0 ? (isOutOfRange ? 'Hors limites!' : '') : ''}
             icon={Heart}
             trend={isOutOfRange ? 'down' : 'neutral'}
           />
           <StatsCard
             title="Moyenne (1 min)"
-            value={avgBpm || '--'}
+            value={hasActiveSession && avgBpm > 0 ? avgBpm : '--'}
             subtitle=""
             icon={TrendingUp}
           />
           <StatsCard
             title="Temps d'Activité"
-            value={formatTime(timer)}
+            value={hasActiveSession ? formatTime(timer) : '--'}
             subtitle=""
             icon={Clock}
           />
