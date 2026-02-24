@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Fonction de login avec vérification backend
-  const handleLogin = async (role: 'doctor' | 'patient') => {
+  const handleLogin = async (expectedRole: 'doctor' | 'patient') => {
     setIsLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
@@ -26,18 +26,46 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        throw new Error('Email ou mot de passe incorrect');
+        if (res.status === 401) {
+          throw new Error('Email ou mot de passe incorrect');
+        }
+        throw new Error('Erreur de connexion');
       }
 
       const data = await res.json();
 
-      // Stockage du JWT pour les requêtes futures
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('token', data.token);
+      // Récupérer les infos utilisateur avec le token
+      const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/me`, {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${data.token}`
+        },
+      });
+
+      if (!profileRes.ok) {
+        throw new Error('Impossible de récupérer le profil utilisateur');
       }
 
-      // Redirection selon le rôle
-      if (role === 'doctor') {
+      const userProfile = await profileRes.json();
+
+      // Vérifier que le rôle correspond à l'onglet sélectionné
+      const userRole = userProfile.role === 'MEDECIN' ? 'doctor' : 'patient';
+      
+      if (userRole !== expectedRole) {
+        throw new Error(`Ces identifiants correspondent à un compte ${userRole === 'doctor' ? 'médecin' : 'patient'}. Veuillez utiliser l'onglet approprié.`);
+      }
+
+      // Stockage du JWT et des infos utilisateur pour les requêtes futures
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify({
+          ...userProfile,
+          role: userRole
+        }));
+      }
+
+      // Redirection selon le rôle vérifié
+      if (userRole === 'doctor') {
         router.push('/doctor/dashboard');
       } else {
         router.push('/patient/dashboard');
@@ -45,7 +73,7 @@ export default function LoginPage() {
 
     } catch (err) {
       console.error(err);
-      alert('Email ou mot de passe incorrect');
+      alert(err instanceof Error ? err.message : 'Email ou mot de passe incorrect');
       setIsLoading(false);
     }
   };

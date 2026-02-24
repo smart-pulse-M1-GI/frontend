@@ -44,6 +44,32 @@ export default function PatientDashboard() {
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [stompClient, setStompClient] = useState<Client | null>(null);
 
+  // Vérification du rôle utilisateur au chargement
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          if (userData.role !== 'patient' && userData.role !== 'PATIENT') {
+            alert('Accès non autorisé. Vous devez être connecté en tant que patient.');
+            localStorage.clear();
+            router.push('/login');
+            return;
+          }
+        } catch (e) {
+          console.error('Erreur parsing user data:', e);
+          localStorage.clear();
+          router.push('/login');
+          return;
+        }
+      } else {
+        router.push('/login');
+        return;
+      }
+    }
+  }, [router]);
+
   const getToken = () => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('token');
@@ -353,7 +379,7 @@ export default function PatientDashboard() {
       stompClient.deactivate();
     }
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
+      localStorage.clear(); // Nettoie tout le localStorage
     }
     router.push('/login');
   };

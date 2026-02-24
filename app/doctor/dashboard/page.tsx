@@ -39,6 +39,32 @@ export default function DoctorDashboard() {
     dateNaissance: '',
   });
 
+  // Vérification du rôle utilisateur au chargement
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          if (userData.role !== 'doctor' && userData.role !== 'MEDECIN') {
+            alert('Accès non autorisé. Vous devez être connecté en tant que médecin.');
+            localStorage.clear();
+            router.push('/login');
+            return;
+          }
+        } catch (e) {
+          console.error('Erreur parsing user data:', e);
+          localStorage.clear();
+          router.push('/login');
+          return;
+        }
+      } else {
+        router.push('/login');
+        return;
+      }
+    }
+  }, [router]);
+
   // Récupérer le token JWT
   const getToken = () => {
     if (typeof window !== 'undefined') {
@@ -296,7 +322,7 @@ export default function DoctorDashboard() {
               </Button>
               <Button onClick={() => {
                 if (typeof window !== 'undefined') {
-                  localStorage.removeItem('token');
+                  localStorage.clear(); // Nettoie tout le localStorage
                 }
                 router.push('/login');
               }} variant="ghost" size="sm">
