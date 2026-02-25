@@ -304,7 +304,7 @@ export default function DoctorDashboard() {
                 <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-base md:text-xl font-bold text-foreground">CardioWatch</h1>
+                <h1 className="text-base md:text-xl font-bold text-foreground">Smart Pulse</h1>
                 <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Dashboard Médecin</p>
               </div>
             </div>
@@ -318,6 +318,12 @@ export default function DoctorDashboard() {
                 <Link href="/doctor/activities">
                   <Activity className="h-4 w-4 flex-shrink-0" />
                   <span className="hidden sm:inline ml-2">Gérer les activités</span>
+                </Link>
+              </Button>
+              <Button variant="outline" asChild size="sm">
+                <Link href="/profile">
+                  <span className="hidden sm:inline">Profil</span>
+                  <span className="sm:hidden">👤</span>
                 </Link>
               </Button>
               <Button onClick={() => {

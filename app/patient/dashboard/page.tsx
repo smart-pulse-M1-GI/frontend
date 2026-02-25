@@ -356,23 +356,12 @@ export default function PatientDashboard() {
   useEffect(() => {
     if (activeActivity || isFreeSessionActive) {
       const interval = setInterval(() => {
-        setTimer(prev => {
-          const newTime = prev + 1;
-          // Auto-stop après la durée prévue (seulement pour les activités)
-          if (activeActivity && activeActivity.durationInMinutes) {
-            if (newTime >= activeActivity.durationInMinutes * 60) {
-              console.log('⏰ Durée atteinte, arrêt automatique');
-              handleStopActivity();
-              return 0;
-            }
-          }
-          return newTime;
-        });
+        setTimer(prev => prev + 1);
       }, 1000);
 
       return () => clearInterval(interval);
     }
-  }, [activeActivity, isFreeSessionActive, handleStopActivity]);
+  }, [activeActivity, isFreeSessionActive]);
 
   const handleLogout = () => {
     if (stompClient?.active) {
@@ -417,7 +406,7 @@ export default function PatientDashboard() {
                 <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-base md:text-xl font-bold text-foreground">CardioWatch</h1>
+                <h1 className="text-base md:text-xl font-bold text-foreground">Smart Pulse</h1>
                 <p className="text-xs md:text-sm text-muted-foreground">
                   {patientInfo ? `${patientInfo.prenom} ${patientInfo.nom}` : 'Mon Dashboard'}
                 </p>
@@ -438,7 +427,13 @@ export default function PatientDashboard() {
                   : connectionStatus === 'connecting'
                   ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800'
                   : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
-              }`}>
+              }`} title={
+                connectionStatus === 'connected' 
+                  ? 'Connexion temps réel active - Données BPM reçues du capteur' 
+                  : connectionStatus === 'connecting'
+                  ? 'Connexion en cours au serveur de données temps réel'
+                  : 'Connexion temps réel interrompue - Pas de données BPM'
+              }>
                 {connectionStatus === 'connected' ? (
                   <Wifi className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
                 ) : (
@@ -451,9 +446,9 @@ export default function PatientDashboard() {
                     ? 'text-yellow-700 dark:text-yellow-300'
                     : 'text-red-700 dark:text-red-300'
                 }`}>
-                  {connectionStatus === 'connected' ? 'Connecté' : 
+                  {connectionStatus === 'connected' ? 'Temps réel' : 
                    connectionStatus === 'connecting' ? 'Connexion...' : 
-                   'Déconnecté'}
+                   'Hors ligne'}
                 </span>
               </div>
               
@@ -461,6 +456,12 @@ export default function PatientDashboard() {
                 <Link href="/patient/history">
                   <span className="hidden sm:inline">Historique</span>
                   <span className="sm:hidden">Hist.</span>
+                </Link>
+              </Button>
+              <Button variant="outline" asChild size="sm">
+                <Link href="/profile">
+                  <span className="hidden sm:inline">Profil</span>
+                  <span className="sm:hidden">👤</span>
                 </Link>
               </Button>
               <Button variant="ghost" onClick={handleLogout} size="sm">

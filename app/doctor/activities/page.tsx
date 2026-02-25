@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ActivityCard } from '@/components/activity-card';
 import { Activity as ActivityType } from '@/lib/types';
-import { Heart, Plus, ArrowLeft, Loader2 } from 'lucide-react';
+import { Heart, Plus, ArrowLeft, Loader2, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -26,6 +26,7 @@ export default function ActivitiesPage() {
   const [activities, setActivities] = useState<ActivityType[]>([]);
   const [patients, setPatients] = useState<DoctorPatient[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<ActivityType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [doctorId, setDoctorId] = useState('');
@@ -156,7 +157,25 @@ export default function ActivitiesPage() {
     fetchDoctorInfo();
   }, [fetchActivities, fetchPatients, getHeaders, router]);
 
-  // Créer une nouvelle activité
+  // Ouvrir le formulaire de modification
+  const handleEditActivity = (activity: ActivityType) => {
+    setEditingActivity(activity);
+    setFormData({
+      title: activity.title || '',
+      description: activity.description || '',
+      patientId: String(activity.patientId || ''),
+      durationInMinutes: activity.durationInMinutes || 30,
+    });
+    setShowForm(true);
+  };
+
+  // Annuler la modification
+  const handleCancelEdit = () => {
+    setEditingActivity(null);
+    setFormData({ title: '', description: '', patientId: '', durationInMinutes: 30 });
+    setShowForm(false);
+  };
+  // Créer ou modifier une activité
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -166,62 +185,54 @@ export default function ActivitiesPage() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${apiUrl}/api/v1/activities/create`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          patientId: formData.patientId,
-          doctorId: doctorId,
-          durationInMinutes: duration, // S'assure que c'est un nombre propre
-        }),
-      });
+      
+      if (editingActivity) {
+        // Modification d'une activité existante
+        const res = await fetch(`${apiUrl}/api/v1/activities/${editingActivity.id}`, {
+          method: 'PUT',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            title: formData.title,
+            description: formData.description,
+            patientId: formData.patientId,
+            doctorId: doctorId,
+            durationInMinutes: duration,
+          }),
+        });
 
-      if (!res.ok) throw new Error('Erreur création');
+        if (!res.ok) throw new Error('Erreur modification');
 
-      const newActivity = await res.json();
-      // On rafraîchit la liste complète pour être sûr d'avoir les bonnes données
-      await fetchActivities(doctorId);
+        const updatedActivity = await res.json();
+        setActivities(activities.map(a => a.id === editingActivity.id ? updatedActivity : a));
+        alert('Activité modifiée avec succès !');
+      } else {
+        // Création d'une nouvelle activité
+        const res = await fetch(`${apiUrl}/api/v1/activities/create`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            title: formData.title,
+            description: formData.description,
+            patientId: formData.patientId,
+            doctorId: doctorId,
+            durationInMinutes: duration,
+          }),
+        });
+
+        if (!res.ok) throw new Error('Erreur création');
+
+        // Rafraîchir la liste complète pour être sûr d'avoir les bonnes données
+        await fetchActivities(doctorId);
+        alert('Activité créée avec succès !');
+      }
       
       setFormData({ title: '', description: '', patientId: '', durationInMinutes: 30 });
+      setEditingActivity(null);
       setShowForm(false);
     } catch (err) {
-      setError('Erreur lors de la création');
+      setError(editingActivity ? 'Erreur lors de la modification' : 'Erreur lors de la création');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Mettre à jour une activité
-  const handleUpdate = async (activityId: string | number, updates: Partial<ActivityType>) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      if (!apiUrl) return;
-
-      const activity = activities.find(a => a.id === activityId);
-      if (!activity) return;
-
-      const res = await fetch(`${apiUrl}/api/v1/activities/${activityId}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          title: updates.title || activity.title,
-          description: updates.description || activity.description,
-          patientId: activity.patientId,
-          doctorId: activity.doctorId,
-          durationInMinutes: updates.durationInMinutes || activity.durationInMinutes,
-        }),
-      });
-
-      if (res.ok) {
-        const updatedActivity = await res.json();
-        setActivities(activities.map(a => a.id === activityId ? updatedActivity : a));
-        alert('Activité mise à jour avec succès');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Erreur lors de la mise à jour');
     }
   };
 
@@ -273,7 +284,7 @@ export default function ActivitiesPage() {
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
+      localStorage.clear();
     }
     router.push('/login');
   };
@@ -281,54 +292,59 @@ export default function ActivitiesPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <Heart className="h-6 w-6 text-primary-foreground" />
+        <div className="container mx-auto px-4 py-3 md:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 rounded-lg bg-primary flex items-center justify-center">
+                <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">CardioWatch</h1>
-                <p className="text-sm text-muted-foreground">Gestion des Activités</p>
+                <h1 className="text-base md:text-xl font-bold text-foreground">Smart Pulse</h1>
+                <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Gestion des Activités</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" asChild>
+            <div className="flex items-center gap-2 md:gap-3">
+              <Button variant="outline" asChild size="sm">
                 <Link href="/doctor/dashboard">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Retour au dashboard
+                  <ArrowLeft className="h-4 w-4 flex-shrink-0" />
+                  <span className="hidden sm:inline ml-2">Retour au dashboard</span>
                 </Link>
               </Button>
-              <Button onClick={handleLogout}>
-                Se déconnecter
+              <Button onClick={handleLogout} variant="ghost" size="sm">
+                <LogOut className="h-4 w-4 flex-shrink-0" />
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className="container mx-auto px-4 py-4 md:py-8 max-w-6xl">
         {error && (
           <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-lg mb-4">
             {error}
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-foreground">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Activités Médicales
             {!loading && <span className="text-muted-foreground ml-2">({activities.length})</span>}
           </h2>
-          <Button onClick={() => setShowForm(!showForm)} disabled={loading}>
+          <Button onClick={() => {
+            setEditingActivity(null);
+            setFormData({ title: '', description: '', patientId: '', durationInMinutes: 30 });
+            setShowForm(!showForm);
+          }} disabled={loading} size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            Créer une activité
+            <span className="hidden sm:inline">Créer une activité</span>
+            <span className="sm:hidden">Créer</span>
           </Button>
         </div>
 
         {showForm && (
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>Nouvelle Activité</CardTitle>
+              <CardTitle>{editingActivity ? 'Modifier l\'Activité' : 'Nouvelle Activité'}</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -358,15 +374,30 @@ export default function ActivitiesPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="title">Titre de l'activité *</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Ex: Marche rapide"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Titre de l'activité *</Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Ex: Marche rapide"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="duration">Durée recommandée (minutes) *</Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      min="5"
+                      max="180"
+                      value={formData.durationInMinutes}
+                      onChange={(e) => setFormData({ ...formData, durationInMinutes: parseInt(e.target.value) })}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -381,29 +412,17 @@ export default function ActivitiesPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="duration">Durée recommandée (minutes) *</Label>
-                  <Input
-                    id="duration"
-                    type="number"
-                    min="5"
-                    max="180"
-                    value={formData.durationInMinutes}
-                    onChange={(e) => setFormData({ ...formData, durationInMinutes: parseInt(e.target.value) })}
-                    required
-                  />
-                </div>
-
-                <div className="flex gap-3">
-                  <Button type="submit" disabled={loading}>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button type="submit" disabled={loading} className="flex-1">
                     {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Créer l'activité
+                    {editingActivity ? 'Modifier l\'activité' : 'Créer l\'activité'}
                   </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setShowForm(false)}
+                    onClick={handleCancelEdit}
                     disabled={loading}
+                    className="flex-1 sm:flex-initial"
                   >
                     Annuler
                   </Button>
@@ -428,16 +447,23 @@ export default function ActivitiesPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {activities.map(activity => (
-              <ActivityCard 
-                key={activity.id} 
-                activity={activity}
-                onUpdate={handleUpdate}
-                onClose={handleClose}
-                onDelete={handleDelete}
-              />
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {activities.map(activity => {
+              // Trouver le nom du patient
+              const patient = patients.find(p => String(p.id) === String(activity.patientId));
+              const patientName = patient ? `${patient.prenom} ${patient.nom}` : `Patient ID: ${activity.patientId}`;
+              
+              return (
+                <ActivityCard 
+                  key={activity.id} 
+                  activity={activity}
+                  patientName={patientName}
+                  onEdit={handleEditActivity}
+                  onClose={handleClose}
+                  onDelete={handleDelete}
+                />
+              );
+            })}
           </div>
         )}
       </main>

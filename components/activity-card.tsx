@@ -9,12 +9,14 @@ interface ActivityCardProps {
   onStart?: () => void;
   onStop?: () => void;
   onUpdate?: (activityId: string | number, updates: Partial<Activity>) => void;
+  onEdit?: (activity: Activity) => void; // Nouvelle fonction pour ouvrir le formulaire de modification
   onClose?: (activityId: string | number) => void;
   onDelete?: (activityId: string | number) => void;
   showActions?: boolean;
+  patientName?: string; // Nom du patient pour l'affichage côté médecin
 }
 
-export function ActivityCard({ activity, onStart, onStop, onUpdate, onClose, onDelete, showActions = false }: ActivityCardProps) {
+export function ActivityCard({ activity, onStart, onStop, onUpdate, onEdit, onClose, onDelete, showActions = false, patientName }: ActivityCardProps) {
   const typeColors = {
     rest: 'bg-chart-2 text-white',
     light: 'bg-chart-3 text-white',
@@ -56,6 +58,9 @@ export function ActivityCard({ activity, onStart, onStop, onUpdate, onClose, onD
                 </Badge>
               )}
             </div>
+            {patientName && (
+              <p className="text-xs text-primary font-medium mb-1">Patient: {patientName}</p>
+            )}
             <p className="text-sm text-muted-foreground mb-2">{activity.description}</p>
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -70,7 +75,7 @@ export function ActivityCard({ activity, onStart, onStop, onUpdate, onClose, onD
           <StatusIcon className={`h-5 w-5 ${status === 'active' ? 'text-success' : 'text-muted-foreground'}`} />
         </div>
 
-        {(showActions || onUpdate || onClose || onDelete) && (
+        {(showActions || onUpdate || onEdit || onClose || onDelete) && (
           <div className="flex gap-2 mt-3">
             {showActions && status === 'scheduled' && (
               <Button onClick={onStart} size="sm" className="flex-1">
@@ -84,18 +89,23 @@ export function ActivityCard({ activity, onStart, onStop, onUpdate, onClose, onD
                 Arrêter
               </Button>
             )}
-            {onUpdate && (
-              <Button onClick={() => onUpdate(activity.id, {})} size="sm" variant="outline">
+            {onEdit && (
+              <Button onClick={() => onEdit(activity)} size="sm" variant="outline" title="Modifier">
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
+            {onUpdate && !onEdit && (
+              <Button onClick={() => onUpdate(activity.id, {})} size="sm" variant="outline" title="Modifier">
                 <Edit className="h-4 w-4" />
               </Button>
             )}
             {onClose && status !== 'completed' && (
-              <Button onClick={() => onClose(activity.id)} size="sm" variant="secondary">
+              <Button onClick={() => onClose(activity.id)} size="sm" variant="secondary" title="Clôturer">
                 <X className="h-4 w-4" />
               </Button>
             )}
             {onDelete && (
-              <Button onClick={() => onDelete(activity.id)} size="sm" variant="destructive">
+              <Button onClick={() => onDelete(activity.id)} size="sm" variant="destructive" title="Supprimer">
                 <Trash2 className="h-4 w-4" />
               </Button>
             )}

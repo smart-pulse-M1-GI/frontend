@@ -236,7 +236,7 @@ export default function PatientHistory() {
                 <Heart className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-base md:text-xl font-bold text-foreground">CardioWatch</h1>
+                <h1 className="text-base md:text-xl font-bold text-foreground">Smart Pulse</h1>
                 <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Historique des Activités</p>
               </div>
             </div>
